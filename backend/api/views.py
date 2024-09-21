@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import make_password
 from djoser import views
 from djoser import serializers as ds
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import (CreateModelMixin,
@@ -11,8 +12,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny
+
 from . import serializers
-from recipes.models import User
+from .filters import IngredientFilter
+from recipes.models import User, Tag, Ingredient
 
 
 class UserViewSet(views.UserViewSet):
@@ -53,3 +56,15 @@ class UserViewSet(views.UserViewSet):
             user.avatar = None
             user.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TagViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = serializers.TagSerializer
+
+
+class IngredientViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = serializers.IngredientSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = IngredientFilter

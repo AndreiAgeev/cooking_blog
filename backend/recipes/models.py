@@ -15,3 +15,34 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
+
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
+
+    def __str__(self) -> str:
+        return self.username
+
+
+class Tag(models.Model):
+    name = models.CharField('Название', max_length=32, unique=True)
+    slug = models.SlugField('Слаг', max_length=32, unique=True)
+
+    class Meta:
+        verbose_name = 'Тег'
+        verbose_name_plural = 'Теги'
+
+    def __str__(self):
+        return self.name
+
+
+class Ingredient(models.Model):
+    name = models.CharField('Название', max_length=128, unique=True)
+    measurement_unit = models.CharField('Единица измерения', max_length=64)
+
+    class Meta:
+        verbose_name = 'Ингредиент'
+        verbose_name_plural = 'Ингредиенты'
+
+    def __str__(self) -> str:
+        return self.name

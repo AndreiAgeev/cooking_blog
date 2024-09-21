@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
-from recipes.models import User
+from recipes.models import User, Tag, Ingredient
 
 
 class Base64ImageField(serializers.ImageField):
@@ -53,6 +53,16 @@ class AvatarSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-    # def to_representation(self, instance):
-    #     print(self.context['request'].build_absolute_uri(instance.avatar.url))
-    #     return super().to_representation(instance)
+
+class TagSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'slug')
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Ingredient
+        fields = ('id', 'name', 'measurement_unit')
