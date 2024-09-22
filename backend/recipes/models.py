@@ -15,6 +15,12 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
+    subscribers = models.ManyToManyField(
+        'User',
+        verbose_name='Подписчики',
+        through='Subscribtions',
+        through_fields=('user', 'subscriber')
+    )
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -22,6 +28,23 @@ class User(AbstractUser):
 
     def __str__(self) -> str:
         return self.username
+
+
+class Subscribtions(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='user_subscribers'
+    )
+    subscriber = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='user_subscribtions'
+    )
 
 
 class Tag(models.Model):
