@@ -1,12 +1,11 @@
 import base64
-from collections import defaultdict
 
-from django.db.models import F, Sum
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
+from django.db.models import F, Sum
 from rest_framework import serializers
 
-from recipes.models import User, Tag, Ingredient, Recipe, RecipeComposition
+from recipes.models import Ingredient, Recipe, RecipeComposition, Tag, User
 
 
 class Base64ImageField(serializers.ImageField):
@@ -50,15 +49,23 @@ class PostUserSerializer(serializers.ModelSerializer):
 
 
 class AvatarSerializer(serializers.ModelSerializer):
-    avatar = Base64ImageField()
+    avatar = Base64ImageField(required=False)
 
     class Meta:
         model = User
         fields = ('avatar',)
 
+    def validate(self, attrs):
+        if 'avatar' not in attrs and self.context['request'].method == 'PUT':
+            raise serializers.ValidationError('Добавьте аватар')
+        return super().validate(attrs)
+
     def update(self, instance, validated_data):
-        instance.avatar = validated_data['avatar']
-        instance.save()
+        if self.context['request'].method == 'PUT':
+            instance.avatar = validated_data['avatar']
+            instance.save()
+        elif self.context['request'].method == 'DELETE':
+            instance.avatar.delete()
         return instance
 
 
@@ -74,14 +81,6 @@ class IngredientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ingredient
         fields = ('id', 'name', 'measurement_unit')
-
-# Наверное забыл убрать - нигде не испольуется
-# class RecipeCompositionSerializer(serializers.ModelSerializer):
-#     ingredient = IngredientSerializer(read_only=True)
-
-#     class Meta:
-#         model = RecipeComposition
-#         fields = ['ingredient', 'amount']
 
 
 class IngredientInputSerializer(serializers.ModelSerializer):
@@ -113,7 +112,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         many=True,
         allow_null=False,
     )
-    ingredients = IngredientInputSerializer(many=True, source='composition', allow_empty=False)
+    ingredients = IngredientInputSerializer(
+        many=True,
+        source='composition',
+        allow_empty=False
+    )
     image = Base64ImageField(allow_null=False, allow_empty_file=False)
     cooking_time = serializers.IntegerField(min_value=1)
 
@@ -144,13 +147,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                     'Ингредиенты не должны повторяться'
                 )
             id_set.add(obj['ingredient'].id)
-        # id_list = list()
-        # for obj in value:
-        #     if obj['ingredient'] in id_list:
-        #         raise serializers.ValidationError(
-        #             'Ингредиенты не должны повторяться'
-        #         )
-        #     id_list.append(obj['ingredient'])
         return value
 
     def validate(self, attrs):
@@ -271,7 +267,7 @@ class FavoriteRecipeSerializer(serializers.ModelSerializer):
                 and not obj_list):
             raise serializers.ValidationError(
                 "Данный рецепт не находится в "
-                 f"{VIEW_ACTION_NAME[self.context['view'].action]}"
+                f"{VIEW_ACTION_NAME[self.context['view'].action]}"
             )
         elif (self.context['request'].method == 'POST'
                 and obj_list):
@@ -332,7 +328,6 @@ class SubscriptionSerializer(GetUserSerializer):
                             'last_name', 'avatar', 'is_subscribed')
 
     def get_recipes(self, obj):
-        print(self.context['request'])
         recipes_limit = self.context['request'].GET.get('recipes_limit')
         if recipes_limit:
             try:
@@ -370,5 +365,8 @@ class SubscriptionSerializer(GetUserSerializer):
         return super().validate(attrs)
 
     def update(self, instance, validated_data):
-        instance.subscribers.add(self.context['request'].user)
+        if self.context['request'].method == 'POST':
+            instance.subscribers.add(self.context['request'].user)
+        elif self.context['request'].method == 'DELETE':
+            instance.subscribers.remove(self.context['request'].user)
         return instance

@@ -1,26 +1,24 @@
-import csv
-from django.shortcuts import get_object_or_404, redirect
+from django.db.models import Prefetch
 from django.contrib.auth.hashers import make_password
 from django.http import HttpResponse
-from djoser import views
-from djoser import serializers as ds
-from djoser.conf import settings
+from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
+from djoser import views
+from djoser.conf import settings
+from djoser.serializers import SetPasswordSerializer
 from rest_framework import status
 from rest_framework.decorators import action, api_view
-from rest_framework.mixins import (CreateModelMixin,
-                                   RetrieveModelMixin,
-                                   ListModelMixin)
+from rest_framework.mixins import (ListModelMixin,
+                                   RetrieveModelMixin)
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import AllowAny
 
 from . import serializers
 from .filters import IngredientFilter, RecipeFilter
+from .paginators import LimitOffsetPagination
 from .permissions import UserStaffOrReadOnly
-from recipes.models import User, Tag, Ingredient, Recipe
+from recipes.models import Ingredient, Recipe, RecipeComposition, Tag, User
 
 
 class UserViewSet(views.UserViewSet):
@@ -39,7 +37,10 @@ class UserViewSet(views.UserViewSet):
         queryset = super().get_queryset()
         user = self.request.user
         if self.action == 'subscriptions':
-            return User.objects.filter(subscribers=user)
+            return (
+                User.objects.filter(subscribers=user)
+                .prefetch_related('recipes')
+            )
         return queryset
 
     def get_serializer_class(self):
@@ -49,7 +50,7 @@ class UserViewSet(views.UserViewSet):
         elif self.action == 'me':
             return serializers.GetUserSerializer
         elif self.action == 'set_password':
-            return ds.SetPasswordSerializer
+            return SetPasswordSerializer
         elif self.action == 'set_avatar':
             return serializers.AvatarSerializer
         elif self.action == 'subscriptions' or self.action == 'subscribe':
@@ -68,35 +69,55 @@ class UserViewSet(views.UserViewSet):
 
     @action(['put', 'delete'], detail=False, url_path='me/avatar')
     def set_avatar(self, request, *args, **kwargs):
-        user = request.user
-        if request.method == 'PUT':
-            serializer = self.get_serializer(user, data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        elif request.method == 'DELETE':
-            user.avatar = None
-            user.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        return self.post_delete(request, *args, **kwargs)
+        # user = request.user
+        # if request.method == 'PUT':
+        #     serializer = self.get_serializer(user, data=request.data)
+        #     serializer.is_valid(raise_exception=True)
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_200_OK)
+        # elif request.method == 'DELETE':
+        #     serializer = self.get_serializer(user, data=request.data)
+        #     serializer.is_valid(raise_exception=True)
+        #     serializer.save()
+        #     # user.avatar = None
+        #     # user.save()
+        #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(['get'], detail=False, url_path='subscriptions')
     def subscriptions(self, request, *args, **kwargs):
-        # Добавить лимит recipes_limit к полю recipes к пагинации
         return self.list(request, *args, **kwargs)
 
     @action(['post', 'delete'], detail=True,)
     def subscribe(self, request, *args, **kwargs):
-        # Добавить лимит recipes_limit к полю recipes
-        sub_user = get_object_or_404(User, pk=kwargs['id'])
-        if request.method == 'POST':
-            serializer = self.get_serializer(sub_user, data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+        return self.post_delete(request, *args, **kwargs)
+        # sub_user = get_object_or_404(User, pk=kwargs['id'])
+        # if request.method == 'POST':
+        #     serializer = self.get_serializer(sub_user, data=request.data)
+        #     serializer.is_valid(raise_exception=True)
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # elif request.method == 'DELETE':
+        #     serializer = self.get_serializer(sub_user, data=request.data)
+        #     serializer.is_valid(raise_exception=True)
+        #     serializer.save()
+        #     #sub_user.subscribers.remove(request.user)
+        #     return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def post_delete(self, request, *args, **kwargs):
+        if self.action == 'subscribe':
+            instance = get_object_or_404(User, pk=kwargs['id'])
+        elif self.action == 'set_avatar':
+            instance = request.user
+
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        if request.method in 'POST':
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        elif request.method == 'PUT':
+            return Response(serializer.data, status=status.HTTP_200_OK)
         elif request.method == 'DELETE':
-            serializer = self.get_serializer(sub_user, data=request.data)
-            serializer.is_valid(raise_exception=True)
-            sub_user.subscribers.remove(request.user)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -113,7 +134,17 @@ class IngredientViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
 
 
 class RecipeViewSet(ModelViewSet):
-    queryset = Recipe.objects.all()
+    queryset = (
+        Recipe.objects.all()
+        .select_related('author')
+        .prefetch_related(
+            'tags',
+            Prefetch(
+                'composition',
+                queryset=RecipeComposition.objects.select_related('ingredient')
+            )
+        )
+    )
     permission_classes = (UserStaffOrReadOnly,)
     http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
@@ -143,12 +174,21 @@ class RecipeViewSet(ModelViewSet):
 
     @action(['get'], detail=False, url_path='download_shopping_cart')
     def download_shopping_cart(self, request, *args, **kwargs):
-        shopping_cart = request.user.shopping_cart.all().prefetch_related('composition__ingredient')
+        shopping_cart = (
+            request.user.shopping_cart
+            .all()
+            .prefetch_related('composition__ingredient')
+        )
         serializer = self.get_serializer(shopping_cart)
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        response = HttpResponse(content_type='text/plain')
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping_cart.txt"'
+        )
         for ingredient in serializer.data['ingredients']:
-            response.write(f"{ingredient['name']}, {ingredient['measurement_unit']} - {ingredient['amount']}\n")
+            response.write(
+                f"{ingredient['name']}, "
+                f"{ingredient['measurement_unit']} - {ingredient['amount']}\n"
+            )
         return response
 
     def post_delete(self, request, *args, **kwargs):
@@ -167,4 +207,3 @@ def short_link_redirect(request, link):
     recipe = get_object_or_404(Recipe, short_link=link)
     url = reverse('recipe-detail', request=request, args=[recipe.id])
     return redirect(url)
-
