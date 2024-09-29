@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password
 from django.http import HttpResponse
 from djoser import views
 from djoser import serializers as ds
+from djoser.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action, api_view
@@ -17,7 +18,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny
 
 from . import serializers
-from .filters import IngredientFilter
+from .filters import IngredientFilter, RecipeFilter
 from .permissions import UserStaffOrReadOnly
 from recipes.models import User, Tag, Ingredient, Recipe
 
@@ -54,6 +55,12 @@ class UserViewSet(views.UserViewSet):
         elif self.action == 'subscriptions' or self.action == 'subscribe':
             return serializers.SubscriptionSerializer
         return serializers.GetUserSerializer
+
+    def get_permissions(self):
+        if (self.action == 'me' and self.request
+                and self.request.method == 'GET'):
+            self.permission_classes = settings.PERMISSIONS.user_me_get
+        return super().get_permissions()
 
     def perform_create(self, serializer):
         password = serializer.validated_data['password']
@@ -109,6 +116,9 @@ class RecipeViewSet(ModelViewSet):
     queryset = Recipe.objects.all()
     permission_classes = (UserStaffOrReadOnly,)
     http_method_names = ('get', 'post', 'patch', 'delete')
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
+    pagination_class = LimitOffsetPagination
 
     def get_serializer_class(self, *args, **kwargs):
         if self.action == 'get_short_link':

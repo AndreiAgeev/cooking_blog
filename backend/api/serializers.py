@@ -50,7 +50,7 @@ class PostUserSerializer(serializers.ModelSerializer):
 
 
 class AvatarSerializer(serializers.ModelSerializer):
-    avatar = Base64ImageField(required=False)
+    avatar = Base64ImageField()
 
     class Meta:
         model = User
@@ -59,49 +59,6 @@ class AvatarSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         instance.avatar = validated_data['avatar']
         instance.save()
-        return instance
-
-
-class SubscriptionSerializer(GetUserSerializer):
-    recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
-
-    class Meta(GetUserSerializer.Meta):
-        fields = ('email', 'id', 'username', 'first_name',
-                  'last_name', 'is_subscribed', 'avatar',
-                  'recipes', 'recipes_count')
-        read_only_fields = ('email', 'username', 'first_name',
-                            'last_name', 'avatar', 'is_subscribed')
-
-    def get_recipes(self, obj):
-        return list()
-
-    def get_recipes_count(self, obj):
-        return 0
-
-    def validate(self, attrs):
-        subscriber_list = User.objects.filter(
-            subscribers=self.context['request'].user,
-            id=self.instance.id
-        )
-        if self.instance == self.context['request'].user:
-            raise serializers.ValidationError(
-                'Нельзя подписаться на самого себя'
-            )
-        elif (self.context['request'].method == 'DELETE'
-                and not subscriber_list):
-            raise serializers.ValidationError(
-                'Вы не подписаны на данного пользователя'
-            )
-        elif (self.context['request'].method == 'POST'
-              and subscriber_list):
-            raise serializers.ValidationError(
-                'Вы уже подписаны на данного пользователя'
-            )
-        return super().validate(attrs)
-
-    def update(self, instance, validated_data):
-        instance.subscribers.add(self.context['request'].user)
         return instance
 
 
@@ -155,9 +112,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(),
         many=True,
         allow_null=False,
-        required=True,
     )
-    ingredients = IngredientInputSerializer(many=True, source='composition')
+    ingredients = IngredientInputSerializer(many=True, source='composition', allow_empty=False)
     image = Base64ImageField(allow_null=False, allow_empty_file=False)
     cooking_time = serializers.IntegerField(min_value=1)
 
@@ -181,21 +137,52 @@ class RecipeSerializer(serializers.ModelSerializer):
         return value
 
     def validate_ingredients(self, value):
-        print(value)
-        id_list = list()
+        id_set = set()
         for obj in value:
-            if obj['ingredient'] in id_list:
+            if obj['ingredient'].id in id_set:
                 raise serializers.ValidationError(
                     'Ингредиенты не должны повторяться'
                 )
-            id_list.append(obj['ingredient'])
+            id_set.add(obj['ingredient'].id)
+        # id_list = list()
+        # for obj in value:
+        #     if obj['ingredient'] in id_list:
+        #         raise serializers.ValidationError(
+        #             'Ингредиенты не должны повторяться'
+        #         )
+        #     id_list.append(obj['ingredient'])
         return value
 
+    def validate(self, attrs):
+        if 'composition' not in attrs:
+            raise serializers.ValidationError(
+                {'ingredients': 'Укажите ингредиенты'}
+            )
+        if 'tags' not in attrs:
+            raise serializers.ValidationError(
+                {'tags': 'Укажите теги'}
+            )
+        return super().validate(attrs)
+
     def get_is_favorited(self, obj):
-        return False
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return False
+        try:
+            user.favorites.get(id=obj.id)
+            return True
+        except ObjectDoesNotExist:
+            return False
 
     def get_is_in_shopping_cart(self, obj):
-        return False
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return False
+        try:
+            user.shopping_cart.get(id=obj.id)
+            return True
+        except ObjectDoesNotExist:
+            return False
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -331,3 +318,57 @@ class ShoppingCartSerializer(serializers.Serializer):
         return AggregatedIngredientsSerializer(
             list(ingredients), many=True
         ).data
+
+
+class SubscriptionSerializer(GetUserSerializer):
+    recipes = serializers.SerializerMethodField()
+    recipes_count = serializers.SerializerMethodField()
+
+    class Meta(GetUserSerializer.Meta):
+        fields = ('email', 'id', 'username', 'first_name',
+                  'last_name', 'is_subscribed', 'avatar',
+                  'recipes', 'recipes_count')
+        read_only_fields = ('email', 'username', 'first_name',
+                            'last_name', 'avatar', 'is_subscribed')
+
+    def get_recipes(self, obj):
+        print(self.context['request'])
+        recipes_limit = self.context['request'].GET.get('recipes_limit')
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+                return FavoriteRecipeSerializer(
+                    obj.recipes.all()[:recipes_limit],
+                    many=True
+                ).data
+            except ValueError:
+                pass
+        return FavoriteRecipeSerializer(obj.recipes.all(), many=True).data
+
+    def get_recipes_count(self, obj):
+        return obj.recipes.count()
+
+    def validate(self, attrs):
+        subscriber_list = User.objects.filter(
+            subscribers=self.context['request'].user,
+            id=self.instance.id
+        )
+        if self.instance == self.context['request'].user:
+            raise serializers.ValidationError(
+                'Нельзя подписаться на самого себя'
+            )
+        elif (self.context['request'].method == 'DELETE'
+                and not subscriber_list):
+            raise serializers.ValidationError(
+                'Вы не подписаны на данного пользователя'
+            )
+        elif (self.context['request'].method == 'POST'
+              and subscriber_list):
+            raise serializers.ValidationError(
+                'Вы уже подписаны на данного пользователя'
+            )
+        return super().validate(attrs)
+
+    def update(self, instance, validated_data):
+        instance.subscribers.add(self.context['request'].user)
+        return instance

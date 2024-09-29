@@ -140,6 +140,7 @@ DJOSER = {
     'HIDE_USERS': False,
     'PERMISSIONS': {
         'user_list': ['api.permissions.UserStaffOrReadOnly'],
-        'user': ['api.permissions.UserStaffOrReadOnly']
+        'user': ['api.permissions.UserStaffOrReadOnly'],
+        'user_me_get': ['djoser.permissions.CurrentUserOrAdmin']
     }
 }
