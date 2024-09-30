@@ -97,6 +97,7 @@ class Recipe(models.Model):
     text = models.TextField('Описание')
     cooking_time = models.PositiveSmallIntegerField('Время приготовления')
     short_link = models.SlugField('Короткая ссылка')
+    pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     def __str__(self) -> str:
         return self.name
@@ -104,6 +105,7 @@ class Recipe(models.Model):
     class Meta:
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
+        ordering = ('-pub_date',)
 
 
 class RecipeComposition(models.Model):
