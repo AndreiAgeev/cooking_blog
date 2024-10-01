@@ -70,19 +70,6 @@ class UserViewSet(views.UserViewSet):
     @action(['put', 'delete'], detail=False, url_path='me/avatar')
     def set_avatar(self, request, *args, **kwargs):
         return self.post_delete(request, *args, **kwargs)
-        # user = request.user
-        # if request.method == 'PUT':
-        #     serializer = self.get_serializer(user, data=request.data)
-        #     serializer.is_valid(raise_exception=True)
-        #     serializer.save()
-        #     return Response(serializer.data, status=status.HTTP_200_OK)
-        # elif request.method == 'DELETE':
-        #     serializer = self.get_serializer(user, data=request.data)
-        #     serializer.is_valid(raise_exception=True)
-        #     serializer.save()
-        #     # user.avatar = None
-        #     # user.save()
-        #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(['get'], detail=False, url_path='subscriptions')
     def subscriptions(self, request, *args, **kwargs):
@@ -91,18 +78,6 @@ class UserViewSet(views.UserViewSet):
     @action(['post', 'delete'], detail=True,)
     def subscribe(self, request, *args, **kwargs):
         return self.post_delete(request, *args, **kwargs)
-        # sub_user = get_object_or_404(User, pk=kwargs['id'])
-        # if request.method == 'POST':
-        #     serializer = self.get_serializer(sub_user, data=request.data)
-        #     serializer.is_valid(raise_exception=True)
-        #     serializer.save()
-        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
-        # elif request.method == 'DELETE':
-        #     serializer = self.get_serializer(sub_user, data=request.data)
-        #     serializer.is_valid(raise_exception=True)
-        #     serializer.save()
-        #     #sub_user.subscribers.remove(request.user)
-        #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post_delete(self, request, *args, **kwargs):
         if self.action == 'subscribe':
