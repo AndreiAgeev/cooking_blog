@@ -180,5 +180,5 @@ class RecipeViewSet(ModelViewSet):
 @api_view(['GET'])
 def short_link_redirect(request, link):
     recipe = get_object_or_404(Recipe, short_link=link)
-    url = reverse('recipe-detail', request=request, args=[recipe.id])
+    url = f'{request.scheme}://{request.get_host()}/recipes/{recipe.id}'
     return redirect(url)

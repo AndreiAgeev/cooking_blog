@@ -10,7 +10,7 @@ class Command(BaseCommand):
     filename = 'ingredients.csv'
 
     def handle(self, *args, **kwargs):
-        with open(f'../data/{self.filename}') as csvfile:
+        with open(f'./data/{self.filename}') as csvfile:
             reader = csv.DictReader(csvfile)
             Ingredient.objects.bulk_create(
                 Ingredient(**data) for data in reader

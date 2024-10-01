@@ -1,0 +1,9 @@
+.vscode
+.git
+.env
+venv
+.venv
+env
+media
+db.sqlite3
+
