@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-^@(82)x^$i5+1!5p)75n0hh5p7$vr+(sb_iw=%7jv&2-=%n^=c')
 
-DEBUG = False
+DEBUG = (os.getenv('DEBUG', 'False').lower() == 'true')
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '51.250.16.100', 'yp-ageev.servehttp.com']
 
