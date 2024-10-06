@@ -15,7 +15,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from . import serializers
 from .filters import IngredientFilter, RecipeFilter
-from .paginators import LimitOffsetPagination
+from .paginators import LimitPagination
 from .permissions import UserStaffOrReadOnly
 from recipes.models import Ingredient, Recipe, RecipeComposition, Tag, User
 
@@ -30,7 +30,7 @@ class UserViewSet(DjoserUserViewSet):
     - subscribe() - обеспечивает функцию дабавления/удаления подписок на
       других пользователей.
     """
-    pagination_class = LimitOffsetPagination
+    pagination_class = LimitPagination
 
     def update(self, request, *args, **kwargs):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -145,7 +145,7 @@ class RecipeViewSet(ModelViewSet):
     http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
-    pagination_class = LimitOffsetPagination
+    pagination_class = LimitPagination
 
     def get_serializer_class(self, *args, **kwargs):
         if self.action == 'get_short_link':
