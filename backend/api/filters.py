@@ -4,6 +4,11 @@ from recipes.models import Ingredient, Recipe
 
 
 class IngredientFilter(filters.FilterSet):
+    """Фильтр для ингредиентов.
+
+    Обеспечивает фильтрацию по вхождению введенных данных в начало
+    названия ингредиента.
+    """
     name = filters.CharFilter(
         field_name='name', lookup_expr='istartswith'
     )
@@ -14,6 +19,14 @@ class IngredientFilter(filters.FilterSet):
 
 
 class RecipeFilter(filters.FilterSet):
+    """Фильтр для рецептов.
+
+    - Доступна фильтрация по id автора;
+    - доступна фильтрация по одному или нескольким тегам по условию ИЛИ.
+    - доступна фильтрация по рецептам, находящимся в избранном у пользователя.
+    - доступна фильтрация по рецептам, находящимся в списке покупок
+      пользователя.
+    """
     author = filters.NumberFilter(field_name='author_id')
     tags = filters.CharFilter(field_name='tags__slug', method='filter_tags')
     is_favorited = filters.NumberFilter(method='filter_favorited')

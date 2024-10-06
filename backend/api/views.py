@@ -3,15 +3,14 @@ from django.contrib.auth.hashers import make_password
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser import views
 from djoser.conf import settings
 from djoser.serializers import SetPasswordSerializer
+from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status
 from rest_framework.decorators import action, api_view
 from rest_framework.mixins import (ListModelMixin,
                                    RetrieveModelMixin)
 from rest_framework.response import Response
-from rest_framework.reverse import reverse
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from . import serializers
@@ -21,7 +20,16 @@ from .permissions import UserStaffOrReadOnly
 from recipes.models import Ingredient, Recipe, RecipeComposition, Tag, User
 
 
-class UserViewSet(views.UserViewSet):
+class UserViewSet(DjoserUserViewSet):
+    """
+    ViewSet, отвечающий за работу с пользователями.
+
+    Наследуется от UserViewSet из библиотеки Djoser.
+    - set_avatar() - обеспечивает функцию изменения аватара;
+    - subscriptions() - обеспечивает функцию просмотра подписок пользователя;
+    - subscribe() - обеспечивает функцию дабавления/удаления подписок на
+      других пользователей.
+    """
     pagination_class = LimitOffsetPagination
 
     def update(self, request, *args, **kwargs):
@@ -97,11 +105,13 @@ class UserViewSet(views.UserViewSet):
 
 
 class TagViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+    """ViewSet для тегов."""
     queryset = Tag.objects.all()
     serializer_class = serializers.TagSerializer
 
 
 class IngredientViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+    """ViewSet для ингредиентов."""
     queryset = Ingredient.objects.all()
     serializer_class = serializers.IngredientSerializer
     filter_backends = (DjangoFilterBackend,)
@@ -109,6 +119,17 @@ class IngredientViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
 
 
 class RecipeViewSet(ModelViewSet):
+    """
+    ViewSet, отвечающий за работу с рецептами.
+
+    Даёт возможность просмтотра, создания, изменения и удаления рецептов.
+    - get_short_link() - возвращает короткую ссылку на рецепт;
+    - favorite() - добавляет рецепт в список избранногопользователя;
+    - shopping_cart() - добавляет рецепт в список покупок пользователя;
+    - download_shopping_cart() - возвращает пользователю текстовый файл
+      формата .txt, содержащий список ингредиентов всех рецептов, находящихся
+      у пользователя в списке покупок.
+    """
     queryset = (
         Recipe.objects.all()
         .select_related('author')
@@ -132,7 +153,7 @@ class RecipeViewSet(ModelViewSet):
         elif self.action == 'favorite' or self.action == 'shopping_cart':
             return serializers.FavoriteRecipeSerializer
         elif self.action == 'download_shopping_cart':
-            return serializers.ShoppingCartSerializer
+            return serializers.DownloadShoppingCartSerializer
         return serializers.RecipeSerializer
 
     @action(['get'], detail=True, url_path='get-link')
@@ -179,6 +200,7 @@ class RecipeViewSet(ModelViewSet):
 
 @api_view(['GET'])
 def short_link_redirect(request, link):
+    """Редирект на рецепт, соответствующий короткой ссылке"""
     recipe = get_object_or_404(Recipe, short_link=link)
     url = f'{request.scheme}://{request.get_host()}/recipes/{recipe.id}'
     return redirect(url)
