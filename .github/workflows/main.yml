@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  backend_tests:
+  backend_flake8_tests:
     name: Backend tests
     runs-on: ubuntu-latest
     services:
