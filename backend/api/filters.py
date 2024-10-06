@@ -49,7 +49,6 @@ class RecipeFilter(filters.FilterSet):
             return queryset
 
     def filter_tags(self, queryset, name, value):
-        result = queryset.filter(
+        return queryset.filter(
             tags__slug__in=self.request.GET.getlist('tags')
         ).distinct()
-        return result
