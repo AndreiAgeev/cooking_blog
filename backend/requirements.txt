@@ -11,7 +11,6 @@ Django==3.2.3
 django-filter==23.1
 django-templated-mail==1.1.1
 djangorestframework==3.12.4
-djangorestframework-simplejwt==4.8.0
 djoser==2.1.0
 flake8==7.1.1
 idna==3.10
@@ -29,7 +28,6 @@ py==1.11.0
 pycodestyle==2.12.1
 pycparser==2.22
 pyflakes==3.2.0
-PyJWT==2.9.0
 pytest==6.2.4
 pytest-django==4.4.0
 pytest-pythonpath==0.7.3
