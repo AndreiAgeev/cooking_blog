@@ -21,14 +21,25 @@ class TagFilter(admin.SimpleListFilter):
 class RecipeCompositionInline(admin.TabularInline):
     model = models.RecipeComposition
     extra = 0
+    min_num = 1
+    verbose_name = 'ингредиент'
+
+
+class SubscribtionsInline(admin.TabularInline):
+    model = models.Subscribtions
+    fk_name = 'user'
+    extra = 1
+    verbose_name = 'Подписчик'
+    verbose_name_plural = 'Подписчики'
 
 
 class UserAdmin(admin.ModelAdmin):
     search_fields = ('email', 'username')
+    inlines = (SubscribtionsInline,)
 
 
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'author')
+    list_display = ('name', 'author', 'favorited_count')
     search_fields = ('author', 'name')
     list_filter = (TagFilter,)
     inlines = (RecipeCompositionInline,)
