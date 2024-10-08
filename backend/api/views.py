@@ -1,4 +1,4 @@
-from django.db.models import Prefetch
+from django.db.models import F, Prefetch, Sum
 from django.contrib.auth.hashers import make_password
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -175,26 +175,46 @@ class RecipeViewSet(ModelViewSet):
             .all()
             .prefetch_related('composition__ingredient')
         )
-        serializer = self.get_serializer(shopping_cart)
+        ingredients = self.get_ingredients(shopping_cart)
+        serializer = self.get_serializer(ingredients, many=True)
         response = HttpResponse(content_type='text/plain')
         response['Content-Disposition'] = (
             'attachment; filename="shopping_cart.txt"'
         )
-        for ingredient in serializer.data['ingredients']:
+        for ingredient in serializer.data:
             response.write(
                 f"{ingredient['name']}, "
                 f"{ingredient['measurement_unit']} - {ingredient['amount']}\n"
             )
         return response
 
+    def get_ingredients(self, queryset):
+        ingredients = (
+            RecipeComposition.objects
+            .filter(recipe__in=queryset)
+            .values(
+                name=F('ingredient__name'),
+                measurement_unit=F('ingredient__measurement_unit')
+            )
+            .annotate(amount=Sum('amount'))
+        )
+        return list(ingredients)
+
     def post_delete(self, request, *args, **kwargs):
         recipe = get_object_or_404(Recipe, pk=kwargs['pk'])
         serializer = self.get_serializer(recipe, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
         if request.method == 'POST':
+            if self.action == 'favorite':
+                request.user.favorites.add(recipe)
+            elif self.action == 'shopping_cart':
+                request.user.shopping_cart.add(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         elif request.method == 'DELETE':
+            if self.action == 'favorite':
+                request.user.favorites.remove(recipe)
+            elif self.action == 'shopping_cart':
+                request.user.shopping_cart.remove(recipe)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 

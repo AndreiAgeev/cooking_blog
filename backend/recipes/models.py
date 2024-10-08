@@ -43,13 +43,18 @@ class Subscribtions(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='user_subscribers'
+        related_name='user_subscribers',
+        verbose_name='Пользователь'
     )
     subscriber = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='user_subscriptions'
+        related_name='user_subscriptions',
+        verbose_name='Подписчик'
     )
+
+    def __str__(self):
+        return f'подписчик {self.subscriber}'
 
 
 class Tag(models.Model):
@@ -112,11 +117,20 @@ class RecipeComposition(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='composition'
+        related_name='composition',
+        verbose_name='Рецепт'
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.RESTRICT,
-        related_name='all_recipes'
+        related_name='all_recipes',
+        verbose_name='Ингредиент'
     )
-    amount = models.PositiveSmallIntegerField()
+    amount = models.PositiveSmallIntegerField('Количество')
+
+    def __str__(self):
+        return f'{self.ingredient.name}, {self.ingredient.measurement_unit}'
+
+    class Meta:
+        verbose_name = 'Состав рецепта'
+        verbose_name_plural = 'Состав рецепта'
