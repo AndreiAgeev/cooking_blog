@@ -101,7 +101,7 @@ class Recipe(models.Model):
     name = models.CharField('Название', max_length=256)
     text = models.TextField('Описание')
     cooking_time = models.PositiveSmallIntegerField('Время приготовления')
-    short_link = models.SlugField('Короткая ссылка')
+    short_link = models.CharField('Короткая ссылка', max_length=32)
     pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     def __str__(self) -> str:
