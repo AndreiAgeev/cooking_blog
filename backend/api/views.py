@@ -1,4 +1,4 @@
-from django.db.models import F, Prefetch, Sum
+from django.db.models import Prefetch
 from django.contrib.auth.hashers import make_password
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -13,7 +13,7 @@ from rest_framework.mixins import (ListModelMixin,
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from . import serializers
+from . import serializers, utils
 from .filters import IngredientFilter, RecipeFilter
 from .paginators import LimitPagination
 from .permissions import UserStaffOrReadOnly
@@ -175,7 +175,7 @@ class RecipeViewSet(ModelViewSet):
             .all()
             .prefetch_related('composition__ingredient')
         )
-        ingredients = self.get_ingredients(shopping_cart)
+        ingredients = utils.get_ingredients(shopping_cart)
         serializer = self.get_serializer(ingredients, many=True)
         response = HttpResponse(content_type='text/plain')
         response['Content-Disposition'] = (
@@ -188,17 +188,17 @@ class RecipeViewSet(ModelViewSet):
             )
         return response
 
-    def get_ingredients(self, queryset):
-        ingredients = (
-            RecipeComposition.objects
-            .filter(recipe__in=queryset)
-            .values(
-                name=F('ingredient__name'),
-                measurement_unit=F('ingredient__measurement_unit')
-            )
-            .annotate(amount=Sum('amount'))
-        )
-        return list(ingredients)
+    # def get_ingredients(self, queryset):
+    #     ingredients = (
+    #         RecipeComposition.objects
+    #         .filter(recipe__in=queryset)
+    #         .values(
+    #             name=F('ingredient__name'),
+    #             measurement_unit=F('ingredient__measurement_unit')
+    #         )
+    #         .annotate(amount=Sum('amount'))
+    #     )
+    #     return list(ingredients)
 
     def post_delete(self, request, *args, **kwargs):
         recipe = get_object_or_404(Recipe, pk=kwargs['pk'])

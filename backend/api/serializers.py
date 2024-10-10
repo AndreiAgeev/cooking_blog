@@ -1,8 +1,10 @@
 import base64
 
+from django.db import transaction
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
+from api import utils
 from recipes.models import Ingredient, Recipe, RecipeComposition, Tag, User
 
 
@@ -59,6 +61,7 @@ class AvatarSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Добавьте аватар')
         return super().validate(attrs)
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         if self.context['request'].method == 'PUT':
             instance.avatar = validated_data['avatar']
@@ -178,8 +181,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         ).data
         return representation
 
+    @transaction.atomic
     def create(self, validated_data):
-        # По поводу замечания про bulk_create написал вам в Пачке вопрос
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('composition')
         recipe = Recipe.objects.create(
@@ -189,28 +192,18 @@ class RecipeSerializer(serializers.ModelSerializer):
         recipe.short_link = base64.b64encode(str(recipe.id).encode()).decode()
         recipe.save()
         recipe.tags.add(*tags)
-        self.save_ingredients(recipe, ingredients)
+        utils.save_ingredients(recipe, ingredients)
         return recipe
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('composition')
         recipe = super().update(instance, validated_data)
         recipe.tags.set(tags)
         recipe.composition.all().delete()
-        self.save_ingredients(recipe, ingredients)
+        utils.save_ingredients(recipe, ingredients)
         return recipe
-
-    def save_ingredients(self, recipe, ingredients):
-        recipe_compositions = [
-            RecipeComposition(
-                recipe=recipe,
-                ingredient=ingredient['ingredient'],
-                amount=ingredient['amount']
-            )
-            for ingredient in ingredients
-        ]
-        RecipeComposition.objects.bulk_create(recipe_compositions)
 
 
 class ShortLinkSerializer(serializers.ModelSerializer):
@@ -256,7 +249,11 @@ class FavoriteRecipeSerializer(serializers.ModelSerializer):
             'favorite': 'избранном',
             'shopping_cart': 'списке покупок'
         }
-        obj_list = self.get_obj_list(self.context['view'].action)
+        obj_list = utils.get_obj_list(
+            self.instance,
+            self.context['request'],
+            self.context['view'].action
+        )
         if (self.context['request'].method == 'DELETE'
                 and not obj_list):
             raise serializers.ValidationError(
@@ -328,6 +325,7 @@ class SubscriptionSerializer(GetUserSerializer):
             )
         return super().validate(attrs)
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         if self.context['request'].method == 'POST':
             instance.subscribers.add(self.context['request'].user)
