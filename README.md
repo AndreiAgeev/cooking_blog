@@ -33,7 +33,3 @@ docker compose exec backend cp -r /app/collected_static/. /backend_static/static
 docker compose exec backend python manage.py createsuperuser - необходимо будет создать суперюзера
 ```
 Проект будет доступен по ссылке http://localhost/. После запуска необходимо будет по ссылке http://localhost/admin/ войти в админку с теми данными, по которым был создан суперюзер, и создать несколько тегов.
-
-## Дополнительно
-Проект также доступен по ссылке https://yp-ageev.servehttp.com/ для всех пользователей. Обладает абсолютно тем же функционалом
-
